@@ -6,7 +6,7 @@ if ! (dpkg -l | grep -iq equivs); then
 fi
 
 echo "[*] Building packages"
-for file in $(ls -1 *.cfg)
+for file in $(ls -1 equivs/*.cfg)
 do
   echo "  - $file"
   equivs-build $file > /dev/null
