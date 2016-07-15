@@ -1,4 +1,4 @@
 i386
 amd64
 *.deb
-repository.pub
+repository.key

@@ -47,7 +47,7 @@ if test -n "$(find ./packages/ -maxdepth 1 -name '*.deb' -print -quit)"; then
   gpg --yes --clearsign --local-user $PUBLIC_KEY --output amd64/InRelease amd64/Release
 
   echo "[*] Exporting the gpg public key for the repository to a file"
-  gpg --armor --export CAE172DB > repository.pub
+  gpg --armor --export CAE172DB > repository.key
 
   echo ""
   echo "[+] Add repository to /etc/apt/sources.list ..."
@@ -60,7 +60,7 @@ if test -n "$(find ./packages/ -maxdepth 1 -name '*.deb' -print -quit)"; then
   echo ""
   echo "[+] Import repository key ..."
   echo ""
-  echo "apt-key add $(pwd)/repository.pub"
+  echo "apt-key add $(pwd)/repository.key"
   echo ""
 else
   echo "[!] No deb packages found, quitting..."
