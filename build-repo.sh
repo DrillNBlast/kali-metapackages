@@ -12,16 +12,18 @@ if ! (dpkg -l | grep -iq debsigs); then
   exit 1
 fi
 
-echo "[*] Building packages"
+echo "[*] Building meta packages"
 for file in $(ls -1 equivs/*.cfg)
 do
   echo "  - $file"
-  equivs-build $file > /dev/null
+  cd packages
+  equivs-build ../$file > /dev/null
+  cd ..
 done
 
-if test -n "$(find . -maxdepth 1 -name '*.deb' -print -quit)"; then
+if test -n "$(find ./packages/ -maxdepth 1 -name '*.deb' -print -quit)"; then
   echo "[*] Signing packages"
-  for file in $(ls -1 *.deb)
+  for file in $(ls -1 packages/*.deb)
   do
     echo "  - $file"
     debsigs --sign=origin -k $PUBLIC_KEY $file
@@ -29,29 +31,37 @@ if test -n "$(find . -maxdepth 1 -name '*.deb' -print -quit)"; then
 
   echo "[*] Generating Packages and Packages.gz files"
   mkdir -p {i386,amd64}
-  apt-ftparchive --arch i386 packages . | tee i386/Packages | gzip > i386/Packages.gz
-  apt-ftparchive --arch amd64 packages . | tee i386/Packages | gzip > i386/Packages.gz
+  apt-ftparchive --arch i386 packages ./packages/ /dev/null packages | tee i386/Packages | gzip > i386/Packages.gz
+  apt-ftparchive --arch amd64 packages ./packages/ /dev/null packages | tee amd64/Packages | gzip > amd64/Packages.gz
 
   echo "[*] Generating the Release file"
   apt-ftparchive release i386 > i386/Release
   apt-ftparchive release amd64 > amd64/Release
 
-  echo "[*] Sign Release file"
+  echo "[*] Signing the Release file"
   gpg --yes --armor --local-user $PUBLIC_KEY --output i386/Release.gpg --detach-sig i386/Release
   gpg --yes --armor --local-user $PUBLIC_KEY --output amd64/Release.gpg --detach-sig amd64/Release
 
-  echo "[*] Generate InRelease file"
+  echo "[*] Generating the InRelease file"
   gpg --yes --clearsign --local-user $PUBLIC_KEY --output i386/InRelease i386/Release
   gpg --yes --clearsign --local-user $PUBLIC_KEY --output amd64/InRelease amd64/Release
 
-  #echo "[*] Exporting repository gpg public key to file"
+  echo "[*] Exporting the gpg public key for the repository to a file"
   gpg --armor --export CAE172DB > repository.pub
 
-  echo "[*] Add the following line to /etc/apt/sources/list ..."
   echo ""
-  echo "deb [trusted=yes] file://$(pwd) i386/"
+  echo "[+] Add repository to /etc/apt/sources.list ..."
+  echo ""
+  echo "deb file://$(pwd) i386/"
+  echo ""
   echo "  - or -"
-  echo "deb [trusted=yes] file://$(pwd) amd64/"
+  echo ""
+  echo "deb file://$(pwd) amd64/"
+  echo ""
+  echo "[+] Import repository key ..."
+  echo ""
+  echo "apt-key add $(pwd)/repository.pub"
+  echo ""
 else
   echo "[!] No deb packages found, quitting..."
   exit 1
