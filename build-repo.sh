@@ -1,6 +1,10 @@
 #!/bin/bash
 
+## START CONFIG ##
+
 PUBLIC_KEY="CAE172DB"
+
+## END CONFIG ##
 
 if ! (dpkg -l | grep -iq equivs); then
   echo "[!] The 'equivs' package does not appear to be installed, quitting..."
@@ -12,57 +16,61 @@ if ! (dpkg -l | grep -iq debsigs); then
   exit 1
 fi
 
-echo "[*] Building meta packages"
-for file in $(ls -1 equivs/*.cfg)
-do
-  echo "  - $file"
-  cd packages
-  equivs-build ../$file > /dev/null
-  cd ..
-done
+echo "[*] Creating directory structure ..."
+mkdir -p dists/kali/main/binary-{i386,amd64}
+mkdir -p pool
 
-if test -n "$(find ./packages/ -maxdepth 1 -name '*.deb' -print -quit)"; then
-  echo "[*] Signing packages"
-  for file in $(ls -1 packages/*.deb)
+if test -n "$(find ./equivs/ -maxdepth 1 -name '*.cfg' -print -quit)"; then
+  echo "[*] Building meta packages ..."
+  for file in $(ls -1 equivs/*.cfg)
+  do
+    echo "  - $file"
+    cd pool
+    equivs-build ../$file > /dev/null
+    cd ..
+  done
+else
+  echo "[*] No meta package configuration files found, skipping ..."
+fi
+
+if test -n "$(find ./pool/ -maxdepth 1 -name '*.deb' -print -quit)"; then
+  echo "[*] Signing packages ..."
+  for file in $(ls -1 pool/*.deb)
   do
     echo "  - $file"
     debsigs --sign=origin -k $PUBLIC_KEY $file
   done
 
-  echo "[*] Generating Packages and Packages.gz files"
-  mkdir -p {i386,amd64}
-  apt-ftparchive --arch i386 packages ./packages/ /dev/null packages | tee i386/Packages | gzip > i386/Packages.gz
-  apt-ftparchive --arch amd64 packages ./packages/ /dev/null packages | tee amd64/Packages | gzip > amd64/Packages.gz
+  echo "[*] Generating Packages and Packages.gz files ..."
+  apt-ftparchive --arch i386 packages ./pool/ /dev/null pool | tee dists/kali/main/binary-i386/Packages | gzip > dists/kali/main/binary-i386/Packages.gz
+  apt-ftparchive --arch amd64 packages ./pool/ /dev/null pool | tee dists/kali/main/binary-amd64/Packages | gzip > dists/kali/main/binary-amd64/Packages.gz
 
-  echo "[*] Generating the Release file"
-  apt-ftparchive release i386 > i386/Release
-  apt-ftparchive release amd64 > amd64/Release
+  cd dists/kali
 
-  echo "[*] Signing the Release file"
-  gpg --yes --armor --local-user $PUBLIC_KEY --output i386/Release.gpg --detach-sig i386/Release
-  gpg --yes --armor --local-user $PUBLIC_KEY --output amd64/Release.gpg --detach-sig amd64/Release
+  echo "[*] Generating the Release file ..."
+  apt-ftparchive release . > Release
 
-  echo "[*] Generating the InRelease file"
-  gpg --yes --clearsign --local-user $PUBLIC_KEY --output i386/InRelease i386/Release
-  gpg --yes --clearsign --local-user $PUBLIC_KEY --output amd64/InRelease amd64/Release
+  echo "[*] Signing the Release file ..."
+  gpg --yes --armor --local-user $PUBLIC_KEY --output Release.gpg --detach-sig Release
 
-  echo "[*] Exporting the gpg public key for the repository to a file"
+  echo "[*] Generating the InRelease file ..."
+  gpg --yes --clearsign --local-user $PUBLIC_KEY --output InRelease Release
+
+  cd ../../
+
+  echo "[*] Exporting the gpg public key for the repository to a file ..."
   gpg --armor --export CAE172DB > repository.key
 
   echo ""
-  echo "[+] Run these commands to add this repostory to your apt source list:"
+  echo "[+] Run the following command to enable this repostory on the local system:"
   echo ""
-  echo "echo \"deb file://$(pwd) i386/\" > /etc/apt/sources.list.d/local.list"
-  echo ""
-  echo "  - or -"
-  echo ""
-  echo "echo \"deb file://$(pwd) amd64/\" > /etc/apt/sources.list.d/local.list"
+  echo "echo \"deb file://$(pwd) kali main\" > /etc/apt/sources.list.d/local.list"
   echo ""
   echo "[+] Import the repository public GPG key:"
   echo ""
   echo "apt-key add $(pwd)/repository.key"
   echo ""
-  echo "[+] Update apt index to recognise the new repo:"
+  echo "[+] Update apt index to recognise the new repository:"
   echo ""
   echo "apt update"
   echo ""

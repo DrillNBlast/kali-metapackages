@@ -1,4 +1,2 @@
-i386
-amd64
-*.deb
+dists
 repository.key
